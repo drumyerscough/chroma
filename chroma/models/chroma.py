@@ -99,7 +99,7 @@ class Chroma(nn.Module):
         steps: int = 500,
         chain_lengths: List[int] = [100],
         tspan: List[float] = (1.0, 0.001),
-        protein_init: Protein = None,
+        protein_init: List[Protein] = None,
         conditioner: Optional[nn.Module] = None,
         langevin_factor: float = 2,
         langevin_isothermal: bool = False,
@@ -301,7 +301,7 @@ class Chroma(nn.Module):
         steps: int = 500,
         chain_lengths: List[int] = [100],
         tspan: List[float] = (1.0, 0.001),
-        protein_init: Protein = None,
+        protein_init: List[Protein] = None,
         conditioner: Optional[nn.Module] = None,
         langevin_factor: float = 2,
         langevin_isothermal: bool = False,
@@ -358,10 +358,22 @@ class Chroma(nn.Module):
         """
 
         if protein_init is not None:
-            X_unc, C_unc, S_unc = protein_init.to_XCS()
-            X_unc = X_unc.repeat(samples, 1, 1, 1)
-            C_unc = C_unc.repeat(samples, 1)
-            S_unc = S_unc.repeat(samples, 1)
+
+            # allow batched inference with several initial proteins
+            if len(protein_init) > 1:
+                X_unc = torch.cat([p.to_XCS()[0] for p in protein_init])
+                C_unc = torch.cat([p.to_XCS()[1] for p in protein_init])
+                S_unc = torch.cat([p.to_XCS()[2] for p in protein_init])
+            
+            # allows batched inference with single initial protein, thanks to elkoz at github.com/elkoz/chroma/
+            elif len(protein_init) == 1:
+                X_unc, C_unc, S_unc = protein_init[0].to_XCS()
+                X_unc = X_unc.repeat(samples, 1, 1, 1)
+                C_unc = C_unc.repeat(samples, 1)
+                S_unc = S_unc.repeat(samples, 1)
+
+            else:
+                Exception('something is wrong with your protein_init')
         else:
             X_unc, C_unc, S_unc = self._init_backbones(samples, chain_lengths)
 
@@ -408,8 +420,8 @@ class Chroma(nn.Module):
             Protein.from_XCS(outs_X[None, ...], outs_C[None, ...], outs_S[None, ...])
             for outs_X, outs_C, outs_S in zip(outs["X_sample"], outs["C"], S)
         ]
-        if samples == 1:
-            proteins = proteins[0]
+        #if samples == 1:
+        #    proteins = proteins[0]
 
         if not full_output:
             return proteins
