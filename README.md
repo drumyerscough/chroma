@@ -1,5 +1,9 @@
 <img src="assets/chroma_logo_outline.svg" width="280">
 
+
+**Modified from elkoz (github.com/elkoz/chroma) to allow batched inference with multiple initial structures. This code works as well as I need it to, and your mileage may vary.**
+
+
 [**Get Started**](#get-started)
 | [**Sampling**](#sampling)
 | [**Design**](#design)
