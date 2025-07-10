@@ -1166,7 +1166,7 @@ class DiffusionChainCov(nn.Module):
 
         def _X0_func(_X, _C, t):
             _X0 = X0_func(_X, _C, t)
-            Xt_trajectory.append(_X.detach())
+            Xt_trajectory.append(_X.detach()) # this appends Xt for the previous t step, not what we want
             Xhat_trajectory.append(_X0.detach())
             return _X0
 
@@ -1210,12 +1210,27 @@ class DiffusionChainCov(nn.Module):
             Ct = C
 
         # Integrate
-        X_trajectory = integrate_func(sdefun, X_init, tspan, N=N, T_grid=T_grid)
+        X_trajectory = integrate_func(sdefun, X_init, tspan, N=N, T_grid=T_grid) # X_trajectory doesn't include conditioner transformations
+        # because conditioner transformations are applied before next forward pass rather than after previous
+
+        # Because coords for most recent step are only added to Xt_trajectory on next step, integrating one step at a time won't update
+        # the coords. Additionally, conditioner transformations are applied on the next step, so to get the most recent coords we must
+        # append the last frame of X_trajectory and, if applicable, apply the conditioner transformation 
+        Xt_trajectory.pop(0)
+        if conditioner is not None:
+            with torch.no_grad():
+                Xt, Ct, U_conditioner = X_trajectory[-1], C, 0.0
+                St = torch.zeros(Ct.shape, device=Xt.device).long()
+                Ot = F.one_hot(St, len(AA20)).float()
+                Xt, Ct, _, U_conditioner, _ = conditioner(Xt, C, Ot, U_conditioner, tspan[-1])
+                Xt_trajectory.append(Xt)
+        else:
+            Xt_trajectory.append(X_trajectory[-1])
 
         # Return constrained coordinates
         outputs = {
             "C": Ct,
-            "X_sample": Xt_trajectory[-1],
+            "X_sample": Xt_trajectory[-1], # had to change this bc original code skips an integration step
             "X_trajectory": [Xt_trajectory[-1]] + Xt_trajectory,
             "Xhat_trajectory": Xhat_trajectory,
             "Xunc_trajectory": X_trajectory,
