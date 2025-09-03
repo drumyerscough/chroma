@@ -357,6 +357,8 @@ class Chroma(nn.Module):
                 `full_output=True`.
         """
 
+        trajectory_length = steps
+
         if protein_init is not None:
 
             # allow batched inference with several initial proteins
@@ -404,10 +406,17 @@ class Chroma(nn.Module):
                 **kwargs,
             )
             outs["C"] = torch.cat([outs["C"], outs_["C"]], dim=0)
+            #print(outs_["X_sample"].shape)
+            #Protein.from_XCS(*(outs_["X_sample"][0,...], outs["C"], torch.zeros_like(outs["C"]).long())).to_PDB('outs__dump.pdb')
             outs["X_sample"] = torch.cat([outs["X_sample"], outs_["X_sample"]], dim=0)
             for key in ['X_trajectory', 'Xhat_trajectory', 'Xunc_trajectory']:
                 for i in range(steps):
                     outs[key][i] = torch.cat([outs[key][i], outs_[key][i]], dim=0)
+        
+        #print(len(outs_["X_trajectory"]), 'len of outs_[X_trajectory]') # 2
+        #print(len(outs["X_trajectory"]), 'len of outs[X_trajectory]') # 1
+
+        #print(outs_[key].shape)
 
         if S_unc.shape != outs["C"].shape:
             S = torch.zeros_like(outs["C"]).long()
@@ -427,9 +436,12 @@ class Chroma(nn.Module):
             return proteins
         else:
             outs["S"] = S
+            #print(len(outs["X_trajectory"]), 'len of outs[X_trajectory]') # 1
+
             trajectories = self._format_trajectory(
                 outs, "X_trajectory", trajectory_length
             )
+            #trajectories = outs["X_trajectory"]
 
             trajectories_Xhat = self._format_trajectory(
                 outs, "Xhat_trajectory", trajectory_length
@@ -442,7 +454,7 @@ class Chroma(nn.Module):
                 outs, "Xunc_trajectory", trajectory_length
             )
 
-            if samples == 1:
+            if samples == 1 and len(protein_init) == 1:
                 full_output_dictionary = {
                     "trajectory": trajectories[0],
                     "Xhat_trajectory": trajectories_Xhat[0],
@@ -791,12 +803,12 @@ class Chroma(nn.Module):
 
         return metric_dictionary
 
-    def _init_backbones(self, num_backbones, length_backbones):
+    def _init_backbones(self, num_backbones, length_backbones, init_state='alpha'):
         # Start with purely alpha backbones
         X = ProteinBackbone(
             num_batch=num_backbones,
             num_residues=sum(length_backbones),
-            init_state="alpha",
+            init_state=init_state,
         )()
         C = torch.cat(
             [torch.full([rep], i + 1) for i, rep in enumerate(length_backbones)]

@@ -227,10 +227,11 @@ class Protein:
             Protein: An instance of the Protein class initialized from the fetched CIF file corresponding to the PDBID.
         """
         from os import unlink
+        import os
 
         from chroma.utility.fetchdb import RCSB_file_download
 
-        file_cif = f"/tmp/{pdb_id}.cif"
+        file_cif = os.path.join(tempfile.gettempdir(), f"{pdb_id}.cif")
         RCSB_file_download(pdb_id, ".cif", file_cif)
         protein = cls.from_CIF(file_cif, canonicalize=canonicalize, device=device)
         unlink(file_cif)
