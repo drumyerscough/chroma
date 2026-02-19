@@ -1218,8 +1218,9 @@ class DiffusionChainCov(nn.Module):
         # append the last frame of X_trajectory and, if applicable, apply the conditioner transformation 
         Xt_trajectory.pop(0)
         if conditioner is not None:
-            with torch.no_grad():
+            with torch.enable_grad():
                 Xt, Ct, U_conditioner = X_trajectory[-1], C, 0.0
+                Xt.requires_grad = True
                 St = torch.zeros(Ct.shape, device=Xt.device).long()
                 Ot = F.one_hot(St, len(AA20)).float()
                 Xt, Ct, _, U_conditioner, _ = conditioner(Xt, C, Ot, U_conditioner, tspan[-1])
