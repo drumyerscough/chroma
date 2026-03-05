@@ -188,7 +188,13 @@ class LossBackboneHBonds(nn.Module):
         )
 
     def forward(
-        self, X: torch.Tensor, X_target: torch.Tensor, C: torch.LongTensor,
+        self,
+        X: torch.Tensor,
+        X_target: torch.Tensor,
+        C: torch.LongTensor,
+        report_fraction: bool = True,
+        dump_recovery_byres: str = None,
+        return_recovery_byres: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Build Graph
         edge_idx, mask_ij = self.graph_builder(X_target, C)
@@ -201,19 +207,28 @@ class LossBackboneHBonds(nn.Module):
         hb_target_nonlocal = (1 - mask_local) * hb_target
 
         # Compute per complex
-        recovery_local = (hb_current * hb_target_local).sum([1, 2]) / (
-            hb_target_local.sum([1, 2]) + self._eps
-        )
-        recovery_nonlocal = (hb_current * hb_target_nonlocal).sum([1, 2]) / (
-            hb_target_nonlocal.sum([1, 2]) + self._eps
-        )
+        recovery_local = (hb_current * hb_target_local).sum([1, 2])
+        recovery_nonlocal = (hb_current * hb_target_nonlocal).sum([1, 2])
+        total_local = hb_target_local.sum([1, 2])
+        total_nonlocal = hb_target_nonlocal.sum([1, 2])
+        if report_fraction:
+            recovery_local /= (total_local + self._eps)
+            recovery_nonlocal /= (total_nonlocal + self._eps)
 
         # Compute contact order
         co_target = _contact_order(hb_target, C, edge_idx)
         co_current = _contact_order(hb_current, C, edge_idx)
 
         error_co = (co_target - co_current).abs()
-        return recovery_local, recovery_nonlocal, error_co
+
+        all_hbonds = hb_target * hb_current
+        all_hbonds = all_hbonds.sum(dim=-1) / (hb_target.sum(dim=-1) + self._eps)
+        if dump_recovery_byres is not None:
+            torch.save((all_hbonds), dump_recovery_byres)
+        if not return_recovery_byres:
+            all_hbonds = None
+
+        return recovery_local, recovery_nonlocal, total_local, total_nonlocal, error_co, all_hbonds, hb_target
 
 
 def _ij_distance(
