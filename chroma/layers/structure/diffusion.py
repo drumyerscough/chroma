@@ -1169,7 +1169,9 @@ class DiffusionChainCov(nn.Module):
             Xt_trajectory.append(_X.detach()) # this appends Xt for the previous t step, not what we want
             Xhat_trajectory.append(_X0.detach())
             return _X0
-
+        
+        grab_f = []
+        grab_gZ = []
         def sdefun(_t, _X):
             f, gZ = sde_func(
                 _X,
@@ -1187,6 +1189,9 @@ class DiffusionChainCov(nn.Module):
                 f = backbone.center_X(f, C)
             if remove_noise_translate:
                 gZ = backbone.center_X(gZ, C)
+            
+            grab_f.append(f)
+            grab_gZ.append(gZ)
             return f, gZ
 
         # Initialization
@@ -1235,6 +1240,8 @@ class DiffusionChainCov(nn.Module):
             "X_trajectory": [Xt_trajectory[-1]] + Xt_trajectory,
             "Xhat_trajectory": Xhat_trajectory,
             "Xunc_trajectory": X_trajectory,
+            "f_trajectory": grab_f,
+            "gZ_trajectory": grab_gZ,
         }
         return outputs
 
