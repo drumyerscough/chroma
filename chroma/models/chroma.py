@@ -69,9 +69,9 @@ class Chroma(nn.Module):
         verbose: bool = False,
     ) -> None:
         super().__init__()
-
+        
         import warnings
-
+        print("running batched chroma")
         warnings.filterwarnings("ignore")
 
         # If no device is explicity specified automatically set device
@@ -466,7 +466,8 @@ class Chroma(nn.Module):
                     "Xhat_trajectory": trajectories_Xhat,
                     "Xunc_trajectory": trajectories_Xunc,
                 }
-
+            full_output_dictionary['f_trajectory'] = outs_['f_trajectory']
+            full_output_dictionary['gZ_trajectory'] = outs_['gZ_trajectory']
             return proteins, full_output_dictionary
 
     def _format_trajectory(self, outs, key, trajectory_length):
